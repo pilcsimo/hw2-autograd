@@ -281,6 +281,12 @@ class Tensor:
             isinstance(target, np.ndarray) and len(target.shape) == 1
         ), "target must be a 1D numpy array"
         # TODO: write forward pass
+        # Hints:
+        # First compute the probabilities using the softmax function.
+        # To ensure numerical stability it is recommended to substract
+        # the highest number of every row from every element of that row.
+        # Then construct the one hot vector encoding of targets.
+        # Lastly compute the loss itself.
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
         #
