@@ -93,22 +93,22 @@ class Tensor:
 
     def __add__(self, other) -> "Tensor":
         other = other if isinstance(other, Tensor) else Tensor(other)
-        out = self.data + other.data
+        out = Tensor(self.data + other.data, (self, other), "+")
 
         def _backward():
-            self.grad += reshape_gradient(other.data.shape, self.data.shape)  # 🌀 your code here
-            other.grad += reshape_gradient(..., other.data.shape)  # 🌀 your code here
+            self.grad += reshape_gradient(out.grad, self.data.shape) # 🌀 your code here
+            other.grad += reshape_gradient(out.grad, other.data.shape) # 🌀 your code here
 
         out._backward = _backward
         return out
 
     def __mul__(self, other) -> "Tensor":
         other = other if isinstance(other, Tensor) else Tensor(other)
-        out = ...  # 🌀 your code here
+        out = self.data * other.data
 
         def _backward():
-            self.grad += reshape_gradient(..., self.data.shape)  # 🌀 your code here
-            other.grad += reshape_gradient(..., other.data.shape)  # 🌀 your code here
+            self.grad += reshape_gradient(out.grad, self.data.shape)  # 🌀 your code here
+            other.grad += reshape_gradient(out.grad, other.data.shape)  # 🌀 your code here
 
         out._backward = _backward
         return out
@@ -120,21 +120,21 @@ class Tensor:
             pass
         else:
             other = Tensor(other)
-        out = ...  # 🌀 your code here
+        out = np.matmul(self.data, other.data)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
-            other.grad += ...  # 🌀 your code here
+            self.grad += np.dot(other.data.T, out.grad)
+            other.grad += np.dot(self.data.T, out.grad)
 
         out._backward = _backward
         return out
 
     def __pow__(self, other) -> "Tensor":
         assert isinstance(other, (int, float))
-        out = ...  # 🌀 your code here
+        out = np.power(self.data, other)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += other * np.power(self.data, other - 1) * out.grad
 
         out._backward = _backward
 
@@ -170,40 +170,40 @@ class Tensor:
     # +++++++++++++++++ Basic Functions +++++++++++++++++
 
     def sin(self) -> "Tensor":
-        out = ...  # 🌀 your code here
+        out = np.sin(self.data)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += np.cos(self.data) * out.grad
 
         out._backward = _backward
 
         return out
 
     def cos(self) -> "Tensor":
-        out = ...  # 🌀 your code here
+        out = np.cos(self.data)
 
         def _backward():
-            self.grad -= ...  # 🌀 your code here
+            self.grad -= self.sin().data * out.grad
 
         out._backward = _backward
 
         return out
 
     def exp(self) -> "Tensor":
-        out = ...  # 🌀 your code here
+        out = np.exp(self.data)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += out * out.grad
 
         out._backward = _backward
 
         return out
 
     def log(self) -> "Tensor":
-        out = ...  # 🌀 your code here
+        out = np.log(self.data)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += self.data**(-1) * out.grad
 
         out._backward = _backward
 
@@ -212,10 +212,13 @@ class Tensor:
     # +++++++++++++++++ Other Functions +++++++++++++++++
 
     def sum(self, axis=None) -> "Tensor":
-        out = ...  # 🌀 your code here
+        if axis is None:
+            out = np.sum(self.data)
+        else:
+            out = np.sum(self.data, axis=axis)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += reshape_gradient(out.grad, self.data.shape) # TODO: this is probably wrong
 
         out._backward = _backward
 
@@ -248,28 +251,28 @@ class Tensor:
     # +++++++++++++++++ Activation Functions +++++++++++++++++
 
     def relu(self) -> "Tensor":
-        out = ...  # 🌀 your code here
+        out = np.maximum(0, self.data)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += (self.data > 0) * out.grad # derivative of ReLU is 1 if x > 0, 0 otherwise
 
         out._backward = _backward
         return out
 
     def sigmoid(self) -> "Tensor":
-        out = ...  # 🌀 your code here
+        out = 1/(1 + np.exp(-self.data))
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += out * (1 - out) * out.grad # derivative of sigmoid is sigmoid(x) * (1 - sigmoid(x))
 
         out._backward = _backward
         return out
 
     def tanh(self) -> "Tensor":
-        out = ...  # 🌀 your code here
+        out = np.tanh(self.data)
 
         def _backward():
-            self.grad += ...  # 🌀 your code here
+            self.grad += (1 - np.tnah(self.data)**2) * out.grad
 
         out._backward = _backward
         return out
@@ -289,27 +292,30 @@ class Tensor:
         # Lastly compute the loss itself.
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
-        #
-        #                    ╔═══════════════════════╗
-        #                    ║                       ║
-        #                    ║       YOUR CODE       ║
-        #                    ║                       ║
-        #                    ╚═══════════════════════╝
-        #
+        softmax = np.exp(self.data - np.max(self.data, axis=1, keepdims=True)) # subtracting the max value for numerical stability
+        softmax /= np.sum(softmax, axis=1, keepdims=True) # normalizing the values (sum of all values in a row should be 1)
+        
+        # Create one-hot encoding for target
+        one_hot = np.zeros_like(self.data)
+        one_hot[np.arange(len(target)), target] = 1
+        
+        # Compute the cross entropy loss
+        out = -np.sum(np.log(softmax) * one_hot) / softmax.shape[0] # computing the cross entropy loss
+        return out
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
         def _backward():
-            self.grad += ...  # 🌀 TODO: your code here
+            self.grad += (softmax - one_hot) / softmax.shape[0] # computing the gradient of the cross entropy
 
         out._backward = _backward
         return out
 
     def regularization_loss(self, reg: float) -> "Tensor":
-        out = ...  # 🌀 TODO: your code here
+        out = reg * np.sum(self.data**2) # assuming this is L2 regularization
 
         def _backward():
-            self.grad += ...  # 🌀 TODO: your code here
+            self.grad += 2 * reg * self.data
 
         out._backward = _backward
         return out
@@ -320,13 +326,8 @@ class Tensor:
         # TODO: write function to perform backward pass
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
-        #
-        #                    ╔═══════════════════════╗
-        #                    ║                       ║
-        #                    ║       YOUR CODE       ║
-        #                    ║                       ║
-        #                    ╚═══════════════════════╝
-        #
+        self.grad = np.ones(self.data.shape)
+        self._backward()
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
@@ -334,13 +335,10 @@ class Tensor:
         # TODO: write function to zero gradients
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
-        #
-        #                    ╔═══════════════════════╗
-        #                    ║                       ║
-        #                    ║       YOUR CODE       ║
-        #                    ║                       ║
-        #                    ╚═══════════════════════╝
-        #
+        self.grad = np.zeros(self.data.shape)
+        for child in self._prev: # not sure if this will work, otherwise try to use _traverse_children
+            child.zero_grad()
+        return None
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
@@ -348,13 +346,8 @@ class Tensor:
         # TODO: write function to perform a learning step
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
-        #
-        #                    ╔═══════════════════════╗
-        #                    ║                       ║
-        #                    ║       YOUR CODE       ║
-        #                    ║                       ║
-        #                    ╚═══════════════════════╝
-        #
+        self.data -= learning_rate * self.grad
+        return None
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
