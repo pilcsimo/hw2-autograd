@@ -93,10 +93,10 @@ class Tensor:
 
     def __add__(self, other) -> "Tensor":
         other = other if isinstance(other, Tensor) else Tensor(other)
-        out = ...  # 🌀 your code here
+        out = self.data + other.data
 
         def _backward():
-            self.grad += reshape_gradient(..., self.data.shape)  # 🌀 your code here
+            self.grad += reshape_gradient(other.data.shape, self.data.shape)  # 🌀 your code here
             other.grad += reshape_gradient(..., other.data.shape)  # 🌀 your code here
 
         out._backward = _backward
