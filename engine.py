@@ -96,8 +96,12 @@ class Tensor:
         out = Tensor(self.data + other.data, (self, other), "+")
 
         def _backward():
-            self.grad += reshape_gradient(out.grad, self.data.shape) # 🌀 your code here
-            other.grad += reshape_gradient(out.grad, other.data.shape) # 🌀 your code here
+            self.grad += reshape_gradient(
+                out.grad, self.data.shape
+            )  # 🌀 your code here
+            other.grad += reshape_gradient(
+                out.grad, other.data.shape
+            )  # 🌀 your code here
 
         out._backward = _backward
         return out
@@ -107,8 +111,12 @@ class Tensor:
         out = self.data * other.data
 
         def _backward():
-            self.grad += reshape_gradient(out.grad, self.data.shape)  # 🌀 your code here
-            other.grad += reshape_gradient(out.grad, other.data.shape)  # 🌀 your code here
+            self.grad += reshape_gradient(
+                out.grad, self.data.shape
+            )  # 🌀 your code here
+            other.grad += reshape_gradient(
+                out.grad, other.data.shape
+            )  # 🌀 your code here
 
         out._backward = _backward
         return out
@@ -203,7 +211,7 @@ class Tensor:
         out = np.log(self.data)
 
         def _backward():
-            self.grad += self.data**(-1) * out.grad
+            self.grad += self.data ** (-1) * out.grad
 
         out._backward = _backward
 
@@ -218,7 +226,9 @@ class Tensor:
             out = np.sum(self.data, axis=axis)
 
         def _backward():
-            self.grad += reshape_gradient(out.grad, self.data.shape) # TODO: this is probably wrong
+            self.grad += reshape_gradient(
+                out.grad, self.data.shape
+            )  # TODO: this is probably wrong
 
         out._backward = _backward
 
@@ -254,16 +264,20 @@ class Tensor:
         out = np.maximum(0, self.data)
 
         def _backward():
-            self.grad += (self.data > 0) * out.grad # derivative of ReLU is 1 if x > 0, 0 otherwise
+            self.grad += (
+                self.data > 0
+            ) * out.grad  # derivative of ReLU is 1 if x > 0, 0 otherwise
 
         out._backward = _backward
         return out
 
     def sigmoid(self) -> "Tensor":
-        out = 1/(1 + np.exp(-self.data))
+        out = 1 / (1 + np.exp(-self.data))
 
         def _backward():
-            self.grad += out * (1 - out) * out.grad # derivative of sigmoid is sigmoid(x) * (1 - sigmoid(x))
+            self.grad += (
+                out * (1 - out) * out.grad
+            )  # derivative of sigmoid is sigmoid(x) * (1 - sigmoid(x))
 
         out._backward = _backward
         return out
@@ -272,7 +286,7 @@ class Tensor:
         out = np.tanh(self.data)
 
         def _backward():
-            self.grad += (1 - np.tnah(self.data)**2) * out.grad
+            self.grad += (1 - np.tnah(self.data) ** 2) * out.grad
 
         out._backward = _backward
         return out
@@ -292,27 +306,35 @@ class Tensor:
         # Lastly compute the loss itself.
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
-        softmax = np.exp(self.data - np.max(self.data, axis=1, keepdims=True)) # subtracting the max value for numerical stability
-        softmax /= np.sum(softmax, axis=1, keepdims=True) # normalizing the values (sum of all values in a row should be 1)
-        
+        softmax = np.exp(
+            self.data - np.max(self.data, axis=1, keepdims=True)
+        )  # subtracting the max value for numerical stability
+        softmax /= np.sum(
+            softmax, axis=1, keepdims=True
+        )  # normalizing the values (sum of all values in a row should be 1)
+
         # Create one-hot encoding for target
         one_hot = np.zeros_like(self.data)
         one_hot[np.arange(len(target)), target] = 1
-        
+
         # Compute the cross entropy loss
-        out = -np.sum(np.log(softmax) * one_hot) / softmax.shape[0] # computing the cross entropy loss
+        out = (
+            -np.sum(np.log(softmax) * one_hot) / softmax.shape[0]
+        )  # computing the cross entropy loss
         return out
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
         def _backward():
-            self.grad += (softmax - one_hot) / softmax.shape[0] # computing the gradient of the cross entropy
+            self.grad += (softmax - one_hot) / softmax.shape[
+                0
+            ]  # computing the gradient of the cross entropy
 
         out._backward = _backward
         return out
 
     def regularization_loss(self, reg: float) -> "Tensor":
-        out = reg * np.sum(self.data**2) # assuming this is L2 regularization
+        out = reg * np.sum(self.data**2)  # assuming this is L2 regularization
 
         def _backward():
             self.grad += 2 * reg * self.data
@@ -327,7 +349,10 @@ class Tensor:
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
         self.grad = np.ones(self.data.shape)
-        self._backward()
+        children = self._traverse_children()
+        for child in children:
+            self.grad *= child._backward()
+        # ???
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
@@ -336,9 +361,14 @@ class Tensor:
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
         self.grad = np.zeros(self.data.shape)
-        for child in self._prev: # not sure if this will work, otherwise try to use _traverse_children
+        for (
+            child
+        ) in (
+            self._prev
+        ):  # not sure if this will work, otherwise try to use _traverse_children
             child.zero_grad()
         return None
+        # ???
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
@@ -348,6 +378,7 @@ class Tensor:
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
         self.data -= learning_rate * self.grad
         return None
+        # ???
 
         # 🌀 TERMINATION 🌀 (Your code reaches its end. 🏁 Do not delete this line.)
 
