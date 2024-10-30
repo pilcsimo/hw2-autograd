@@ -111,12 +111,8 @@ class Tensor:
         out = Tensor(self.data * other.data, (self, other), "*")
 
         def _backward():
-            self.grad += reshape_gradient(
-                out.grad, self.data.shape
-            )  # 🌀 your code here
-            other.grad += reshape_gradient(
-                out.grad, other.data.shape
-            )  # 🌀 your code here
+            self.grad += reshape_gradient(other.data * out.grad, self.data.shape)
+            other.grad += reshape_gradient(self.data * out.grad, other.data.shape)
 
         out._backward = _backward
         return out
@@ -134,12 +130,8 @@ class Tensor:
             out = Tensor(np.matmul(self.data, other.data), (self, other), "matmul")
 
         def _backward():
-            self.grad += reshape_gradient(
-                np.dot(out.grad, other.data.T), self.data.shape
-            )
-            other.grad += reshape_gradient(
-                np.dot(self.data.T, out.grad), other.data.shape
-            )
+            self.grad += np.dot(out.grad, other.data.T)
+            other.grad += np.dot(self.data.T, out.grad)
 
         out._backward = _backward
         return out
@@ -284,7 +276,7 @@ class Tensor:
 
         def _backward():
             self.grad += (
-                out * (1 - out) * out.grad
+                out.data * (1 - out.data) * out.grad
             )  # derivative of sigmoid is sigmoid(x) * (1 - sigmoid(x))
 
         out._backward = _backward
@@ -294,7 +286,7 @@ class Tensor:
         out = Tensor(np.tanh(self.data), (self,), "tanh")
 
         def _backward():
-            self.grad += (1 - np.tanh(self.data) ** 2) * out.grad
+            self.grad += (1 - out.data**2) * out.grad
 
         out._backward = _backward
         return out
@@ -369,10 +361,10 @@ class Tensor:
         # -------------------------------------------------
         # 🌀 INCEPTION 🌀 (Your code begins its journey here. 🚀 Do not delete this line.)
 
-        topo = self._traverse_children() + [self]
-        self.grad = np.array(1.0)  # Initialize with a scalar
+        self.grad = np.ones_like(self.data)  # Initialize the gradient of the loss to 1
+        topo = self._traverse_children()  # Build the topological order of the graph
 
-        for node in reversed(topo):
+        for node in reversed(topo):  # Traverse the graph in reverse topological order
             node._backward()
         return None
 
